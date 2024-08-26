@@ -1,7 +1,8 @@
-getList();
-const baseURL = ""
-itemsArray = []
 
+const baseURL = "http://localhost:3000/api"
+itemsArray = []
+token = 'Bearer xyzddd'
+getList();
 
 function getList() {
     fetch(`${baseURL}/list`)
@@ -23,17 +24,17 @@ function renderUL() {
     const ul = document.getElementById('items');
     ul.innerHTML = ""
 
-    itemsArray.foreach(item => {
+    itemsArray.forEach(item => {
         const li = document.createElement("li")
         li.id = `item-${item.id}`;
         li.classList = "flex text-lg justify-between bg-gray-100 p-1 rounded-lg px-5 mt-2"
         li.innerHTML = `
             <p class="w-full pr-5">
-            <input readonly type="text" class="w-full py-2 bg-transparent ring-0 outline outline-0" value="${item.value}"/>
+            <input readonly type="text" class="w-full py-2 bg-transparent ring-0 outline outline-0" value="${item.value}" placeholder="Enter something.."/>
           </p>
           <div class="gap-5 flex">
-            <button id="editbtn${item.id}" onClick="toggleEditSave(${item.value})">Edit</button>
-            <button onClick="deleteItem(${item.value})">
+            <button  onClick="toggleEditSave(${item.id})" id="editBtn${item.id}">Edit</button>
+            <button onClick="deleteItem(${item.id})">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -67,18 +68,101 @@ function toggleEditSave(id) {
 }
 
 function editItem(id) {
-    const input = document.getElementById(`item-${id}`).querySelector('input')
-    const editbtn = document.getElementById(`editbtn${item.id}`)
+  const input = document.getElementById(`item-${id}`).querySelector('input');
+  const editBtn = document.getElementById(`editBtn${id}`);
     input.readOnly = false
-    editbtn.textContent = "Save"
-    input.focus()
-    input.setSelectionRange(input.value.length, input.value.length)
+    editBtn.textContent = "Save"
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
 
 
 }
 
 function saveItem(id) {
-    
+  const input = document.getElementById(`item-${id}`).querySelector('input');
+  const editBtn = document.getElementById(`editBtn${id}`);
+  input.readOnly = true;
+  editBtn.textContent = "Edit";
+  const itemToUpdate = itemsArray.find(x => x.id === id)
+  const oldValue = itemsArray.value;
+  itemToUpdate.value = input.value
+  fetch(`${baseURL}/list/${id}`, {
+    method: 'PUT',
+    headers:{
+      Authorization: token,
+      "Content-Type":"application/json"
+    },
+    body: JSON.stringify(itemToUpdate)
+  })
+  .then((response) => {
+      if (!response.ok) {
+      itemToUpdate.value = oldValue
+  }
+  })
+  .catch(() => {
+      if (!response.ok) {
+      itemToUpdate.value = oldValue
+    }
+  })
+  .finally(() => {
+      renderUL();
+  })
 }
-function deleteItem(id){}
+function deleteItem(id) {
+  fetch(`${baseURL}/list/${id}`, {
+    method: 'DELETE',
+    headers:{
+      Authorization: token,
+      "Content-Type":"application/json"
+    },
+  })
+  .then((response) => {
+    itemsArray = itemsArray.filter((x) => x.id !== id)
+  })
+  .catch(() => {
+      
+  })
+  .finally(() => {
+      renderUL();
+  })
+}
 // hello
+
+async function saveAllBeforeAdding() {
+  for (const item of itemsArray) {
+    const editBtn = document.getElementById(`editBtn${item.id}`);
+    if (editBtn.textContent === 'Save') {
+      await saveItem(item.id)
+    }
+  }
+}
+
+async function addItem() {
+  await saveAllBeforeAdding();
+  const newItem = { value: "" };
+  fetch(`${baseURL}/list/`, {
+    method: 'POST',
+    headers:{
+      Authorization: token,
+      "Content-Type":"application/json"
+    },
+    body: JSON.stringify(newItem)
+  })
+  .then((response) => {
+    if (response.ok) {
+     return response.json()
+   }
+  })
+    .then((data) => {
+      itemsArray.push(data)
+      console.log(itemsArray)
+  })
+  .catch(() => {
+     
+  })
+  .finally(() => {
+    renderUL();
+    editItem(itemsArray[itemsArray.length-1].id)
+  })
+}
